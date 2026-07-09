@@ -31,13 +31,18 @@
       const pdfBuffer = await api.fetchPdf(avis.url);
 
       step = 'extraction des montants du PDF';
-      const amounts = avisParser.parse(new Uint8Array(pdfBuffer));
+      const pdfBytes = new Uint8Array(pdfBuffer);
+      const amounts = avisParser.parse(pdfBytes);
 
-      // amounts.aide peut être null légitimement (pas d'aide ce mois-ci) :
-      // seul un loyer introuvable est bloquant.
+      // amounts.aide/loyer peuvent être null légitimement (rien à facturer,
+      // pas d'aide ce mois-ci, ou libellé non reconnu) : on affiche le
+      // panneau avec ce qu'on a plutôt que de bloquer sur un champ manquant.
       if (amounts.loyer === null) {
-        ui.renderError(blocElement, 'montant du loyer introuvable dans le PDF (format non reconnu ?).');
-        return;
+        // Diagnostic : affiche le texte brut extrait du PDF dans la console
+        // pour pouvoir ajuster les regex de config.js sans avoir besoin du
+        // PDF original (qui contient des données personnelles).
+        const text = globalThis.CiteURV.pdfText.extractText(pdfBytes);
+        console.warn('[CiteURentViewer] loyer introuvable, texte extrait du PDF :', text);
       }
 
       step = 'affichage du panneau';

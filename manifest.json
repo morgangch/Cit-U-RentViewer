@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CiteU Rent Viewer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Affiche le loyer, l'aide (APL/ALS) attendue et le reste à charge directement sur la page « Mon logement actuel » de Cité U (CROUS).",
   "browser_specific_settings": {
     "gecko": {

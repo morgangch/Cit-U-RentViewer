@@ -49,6 +49,14 @@ globalThis.CiteURV.ui = (() => {
       panel.appendChild(buildRow(soldeLabel, data.solde));
     }
 
+    if (data.loyer === null) {
+      const note = document.createElement('div');
+      note.textContent =
+        'Montant du loyer non détecté (format de l’avis non reconnu) — vérifie le PDF ci-dessous.';
+      note.style.cssText = 'margin-top:6px;font-size:12px;color:#a33;';
+      panel.appendChild(note);
+    }
+
     if (data.avisUrl) {
       const link = document.createElement('a');
       link.href = data.avisUrl;

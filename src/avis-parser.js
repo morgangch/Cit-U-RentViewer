@@ -82,6 +82,9 @@ globalThis.CiteURV.avisParser = (() => {
       if (total !== null) return total;
       const sum = sumAmounts(section);
       if (sum !== null) return sum;
+      // Section trouvée mais vide : rien à facturer ce mois-ci (ex. avis
+      // suivant un mois déjà payé d'avance). Ce n'est pas une erreur.
+      if (section.trim() === '') return 0;
     }
     return findLabeledAmount(text, config.pdfLabels.loyer);
   }
@@ -89,17 +92,23 @@ globalThis.CiteURV.avisParser = (() => {
   /**
    * Cherche "Solde débiteur/créditeur au <date>" et retourne le montant
    * signé : négatif si débiteur (tu dois de l'argent au CROUS), positif si
-   * créditeur. Retourne null si absent du texte.
+   * créditeur. Repli sur "Solde au <date>" (sans qualificatif — le CROUS
+   * omet "débiteur"/"créditeur" quand le solde est à 0). Retourne null si
+   * absent du texte.
    */
   function findSolde(text) {
     const labelMatch = text.match(config.soldePattern);
-    if (!labelMatch) return null;
-    const windowStart = labelMatch.index + labelMatch[0].length;
+    const match = labelMatch || text.match(config.soldeNeutralPattern);
+    if (!match) return null;
+
+    const windowStart = match.index + match[0].length;
     const searchWindow = text.slice(windowStart, windowStart + config.amountSearchWindow);
     const amountMatch = searchWindow.match(AMOUNT_RE);
     if (!amountMatch) return null;
     const value = parseAmount(amountMatch[0]);
     if (value === null) return null;
+
+    if (!labelMatch) return value; // "Solde au ..." neutre (sans qualificatif), non signé
     const isDebiteur = /débiteur/i.test(labelMatch[1]);
     return isDebiteur ? -Math.abs(value) : Math.abs(value);
   }

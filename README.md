@@ -37,7 +37,9 @@ chaque logement :
    Le loyer est cherché dans la section « DROITS CONSTATES ... SITUATION DE
    VOTRE COMPTE » : s'il y a un « Total » explicite dedans on lui fait
    confiance, sinon (une seule ligne de charge, cas où le CROUS n'affiche
-   même pas le mot « Total ») on additionne les montants de la section.
+   même pas le mot « Total ») on additionne les montants de la section. Si
+   la section est trouvée mais entièrement vide (rien à facturer ce
+   mois-ci, ex. mois déjà payé d'avance), le loyer est 0€, pas une erreur.
    Si l'avis n'a pas de ligne « Montant ALS attendu » (cas de certains
    CROUS, ex. Montpellier), l'aide est lue depuis l'encaissement
    « CAF REGIE ... APL/ALS » ; si l'avis ne mentionne aucune aide du tout,

@@ -63,6 +63,10 @@ globalThis.CiteURV.config = {
   // (positif, tu as un crédit). Capture 1 = débiteur|créditeur.
   soldePattern: /Solde\s+(débiteur|créditeur)\s+au\s+\d{2}\/\d{2}\/\d{4}/i,
 
+  // Repli : "Solde au 01/07/2026 0,00" — le CROUS omet le qualificatif
+  // débiteur/créditeur quand le compte est à l'équilibre.
+  soldeNeutralPattern: /Solde\s+au\s+\d{2}\/\d{2}\/\d{4}/i,
+
   // Fenêtre (en caractères) après le libellé dans laquelle on cherche le montant.
   amountSearchWindow: 120
 };

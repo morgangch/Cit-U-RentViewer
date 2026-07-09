@@ -33,8 +33,10 @@
       step = 'extraction des montants du PDF';
       const amounts = avisParser.parse(new Uint8Array(pdfBuffer));
 
-      if (amounts.loyer === null && amounts.aide === null) {
-        ui.renderError(blocElement, 'montants introuvables dans le PDF (libellés inattendus ?).');
+      // amounts.aide peut être null légitimement (pas d'aide ce mois-ci) :
+      // seul un loyer introuvable est bloquant.
+      if (amounts.loyer === null) {
+        ui.renderError(blocElement, 'montant du loyer introuvable dans le PDF (format non reconnu ?).');
         return;
       }
 

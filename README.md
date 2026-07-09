@@ -14,8 +14,10 @@ savoir en un coup d'œil : combien reste à payer ce mois-ci.
 Sur la page **« Mon logement actuel »**, elle affiche automatiquement, pour
 chaque logement :
 
-- **Montant loyer** — la ligne « Total » du dernier avis d'échéance ;
-- **Montant APL/ALS attendu** — la ligne « Montant ALS attendu » (ou APL) ;
+- **Montant loyer** — somme des lignes « DROITS CONSTATES » (loyer, charges,
+  compl. mobilier, ...) du dernier avis d'échéance ;
+- **Montant APL/ALS attendu** — la ligne « Montant ALS attendu » (ou APL),
+  ou « — » si l'avis n'en mentionne aucune (traité comme 0€ dans le calcul) ;
 - **Différence (reste à charge)** — loyer − aide ;
 - **Solde débiteur/créditeur** — le solde du compte locataire à la date de
   l'avis (négatif = tu dois de l'argent au CROUS, positif = tu as un crédit).
@@ -32,9 +34,14 @@ chaque logement :
    texte avec un extracteur maison ([src/pdf-text.js](src/pdf-text.js) :
    flux FlateDecode décompressés via pako, opérateurs texte Tj/TJ, polices
    CID traduites via leur table /ToUnicode) et parse les montants par regex.
+   Le loyer est cherché dans la section « DROITS CONSTATES ... SITUATION DE
+   VOTRE COMPTE » : s'il y a un « Total » explicite dedans on lui fait
+   confiance, sinon (une seule ligne de charge, cas où le CROUS n'affiche
+   même pas le mot « Total ») on additionne les montants de la section.
    Si l'avis n'a pas de ligne « Montant ALS attendu » (cas de certains
    CROUS, ex. Montpellier), l'aide est lue depuis l'encaissement
-   « CAF REGIE ... APL/ALS ».
+   « CAF REGIE ... APL/ALS » ; si l'avis ne mentionne aucune aide du tout,
+   elle est traitée comme 0€.
 4. Il injecte un panneau récapitulatif dans le bloc logement, avec un lien
    vers le PDF.
 
@@ -87,12 +94,13 @@ non nécessaire pour Firefox Android.
 
 Le code est indépendant du CROUS : le préfixe `citeU-LIL` / `citeU-MTP` / etc.
 vient du match pattern du manifest et n'est jamais codé en dur. Testé avec
-succès sur de vrais avis LIL et MTP (formats de solde et de ligne d'aide
-différents). Si un avis d'échéance utilise d'autres libellés, tout se règle
-dans [src/config.js](src/config.js) :
+succès sur de vrais avis LIL et MTP (formats de solde, de ligne d'aide et de
+nombre de lignes de charges différents). Si un avis d'échéance utilise
+d'autres libellés, tout se règle dans [src/config.js](src/config.js) :
 
 - `pdfLabels.aide` / `pdfLabels.loyer` : regex des libellés cherchés dans le
   PDF (la première qui matche gagne) ;
+- `droitsConstatesSection` : bornes de la section des charges du mois ;
 - `soldePattern` : regex du solde débiteur/créditeur ;
 - `documentsLinkSelector` / `avisLinkPattern` : sélecteur et regex des liens ;
 - `amountSearchWindow` : distance max (caractères) entre le libellé et son
@@ -112,6 +120,14 @@ Attention si tu modifies `pdf-text.js` : ne jamais utiliser
 `TextDecoder('latin1')` sur les octets du PDF — c'est en réalité du
 windows-1252, qui remappe les octets 0x80-0x9F et corrompt les codes de
 glyphes des polices CID utilisées par les avis CROUS.
+
+Attention si tu modifies la regex de montant (`AMOUNT_SOURCE` dans
+`avis-parser.js`) : le séparateur de milliers ne doit accepter que des
+espaces insécables (` `/` `), jamais une espace normale (`\s`).
+Une espace normale sépare aussi des tokens PDF distincts (ex. une quantité
+« 1 » collée au montant suivant), ce qui fusionnait par le passé deux
+nombres voisins en un seul montant erroné lors d'un balayage de section
+large (`sumAmounts`).
 
 ## Structure
 

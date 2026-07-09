@@ -40,11 +40,22 @@ globalThis.CiteURV.config = {
       /(?:ALS|APL)\s+attendue?/i,
       /CAF\s+REGIE[^]{0,20}?(?:APL|ALS)\d*\/?/i
     ],
-    // Total à payer sur l'avis d'échéance
+    // Repli si la section "DROITS CONSTATES" (voir droitsConstatesSection)
+    // est introuvable : chercher directement un total explicite.
     loyer: [
       /Total\s+(?:à|a)\s+payer/i,
       /\bTotal\b/i
     ]
+  },
+
+  // Section listant les charges du mois (loyer, charges, compl. mobilier,
+  // ...) : "DROITS CONSTATES ... SITUATION DE VOTRE COMPTE". Le montant du
+  // loyer du mois est la somme de tous les montants de cette section — plus
+  // robuste qu'un libellé "Total", qui n'apparaît pas quand il n'y a qu'une
+  // seule ligne de charge (le CROUS omet alors le mot "Total").
+  droitsConstatesSection: {
+    start: /DROITS\s+CONSTATES/i,
+    end: /SITUATION\s+DE\s+VOTRE\s+COMPTE/i
   },
 
   // Solde du compte locataire à la date de l'avis : "Solde débiteur au

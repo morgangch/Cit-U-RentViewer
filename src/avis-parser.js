@@ -11,10 +11,11 @@ globalThis.CiteURV.avisParser = (() => {
   // On exige des décimales ou un "€" qui suit, pour ne pas confondre le
   // montant avec une date ou un numéro de dossier situé après le libellé.
   // (  /   : espaces insécables en séparateur de milliers)
-  const AMOUNT_RE = new RegExp(
-    '-?\\s*\\d[\\d\\s\\u00a0\\u202f]*[.,]\\d{1,2}' + // avec décimales
-      '|-?\\s*\\d[\\d\\s\\u00a0\\u202f]*(?=\\s*\\u20ac)' // entier suivi de €
-  );
+  const AMOUNT_SOURCE =
+    '-?\\s*\\d[\\d\\u00a0\\u202f]*[.,]\\d{1,2}' + // avec décimales
+    '|-?\\s*\\d[\\d\\u00a0\\u202f]*(?=\\s*\\u20ac)'; // entier suivi de €
+  const AMOUNT_RE = new RegExp(AMOUNT_SOURCE);
+  const AMOUNT_RE_GLOBAL = new RegExp(AMOUNT_SOURCE, 'g');
 
   /** "1 234,56" -> 1234.56 (gère espaces normales/insécables et virgule). */
   function parseAmount(raw) {
@@ -42,6 +43,49 @@ globalThis.CiteURV.avisParser = (() => {
     return null;
   }
 
+  /** Isole le texte entre deux libellés. Retourne null si `startPattern` est absent. */
+  function extractSection(text, startPattern, endPattern) {
+    const startMatch = text.match(startPattern);
+    if (!startMatch) return null;
+    const sectionStart = startMatch.index + startMatch[0].length;
+    const rest = text.slice(sectionStart);
+    const endMatch = rest.match(endPattern);
+    return endMatch ? rest.slice(0, endMatch.index) : rest;
+  }
+
+  /** Somme tous les montants d'un texte. Retourne null s'il n'y en a aucun. */
+  function sumAmounts(text) {
+    const amounts = [...text.matchAll(AMOUNT_RE_GLOBAL)]
+      .map((m) => parseAmount(m[0]))
+      .filter((v) => v !== null);
+    if (amounts.length === 0) return null;
+    return Math.round(amounts.reduce((sum, v) => sum + v, 0) * 100) / 100;
+  }
+
+  /**
+   * Montant du loyer du mois : cherché dans la section "DROITS CONSTATES
+   * ... SITUATION DE VOTRE COMPTE". Si la section contient un "Total"
+   * explicite, on lui fait confiance (c'est déjà la somme des lignes) —
+   * sinon (ex. une seule ligne de charge, cas où le CROUS n'affiche même
+   * pas le mot "Total"), on additionne tous les montants de la section.
+   * Repli final : chercher un "Total" dans tout le document, si la section
+   * elle-même est introuvable (format de CROUS totalement différent).
+   */
+  function findLoyer(text) {
+    const section = extractSection(
+      text,
+      config.droitsConstatesSection.start,
+      config.droitsConstatesSection.end
+    );
+    if (section !== null) {
+      const total = findLabeledAmount(section, config.pdfLabels.loyer);
+      if (total !== null) return total;
+      const sum = sumAmounts(section);
+      if (sum !== null) return sum;
+    }
+    return findLabeledAmount(text, config.pdfLabels.loyer);
+  }
+
   /**
    * Cherche "Solde débiteur/créditeur au <date>" et retourne le montant
    * signé : négatif si débiteur (tu dois de l'argent au CROUS), positif si
@@ -64,8 +108,12 @@ globalThis.CiteURV.avisParser = (() => {
    * Parse un avis d'échéance.
    * Retourne { aide, loyer, resteACharge, solde } (euros).
    * - aide  : "Montant ALS/APL attendu" (l'aide est parfois notée en négatif
-   *           sur l'avis car déduite ; on la remet en positif)
-   * - loyer : ligne "Total" des droits constatés du mois
+   *           sur l'avis car déduite ; on la remet en positif). null si
+   *           l'avis ne mentionne aucune aide (traité comme 0 dans le
+   *           calcul de resteACharge).
+   * - loyer : somme des lignes "DROITS CONSTATES" du mois (loyer, charges,
+   *           compl. mobilier, ...), avec repli sur le libellé "Total" si
+   *           la section n'est pas trouvée.
    * - solde : solde du compte locataire à la date de l'avis, signé
    *           (négatif = débiteur, positif = créditeur), ou null si absent
    */
@@ -73,19 +121,18 @@ globalThis.CiteURV.avisParser = (() => {
     const text = globalThis.CiteURV.pdfText.extractText(pdfBytes);
 
     const aideRaw = findLabeledAmount(text, config.pdfLabels.aide);
-    const loyerRaw = findLabeledAmount(text, config.pdfLabels.loyer);
-
     const aide = aideRaw === null ? null : Math.abs(aideRaw);
+
+    const loyerRaw = findLoyer(text);
     const loyer = loyerRaw === null ? null : Math.abs(loyerRaw);
 
     return {
       aide,
       loyer,
-      resteACharge:
-        aide !== null && loyer !== null ? Math.round((loyer - aide) * 100) / 100 : null,
+      resteACharge: loyer !== null ? Math.round((loyer - (aide ?? 0)) * 100) / 100 : null,
       solde: findSolde(text)
     };
   }
 
-  return { parse, findLabeledAmount, parseAmount, findSolde };
+  return { parse, findLabeledAmount, parseAmount, findSolde, findLoyer, sumAmounts, extractSection };
 })();

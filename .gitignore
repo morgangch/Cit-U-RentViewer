@@ -1,0 +1,12 @@
+# Avis d'échéance / documents personnels utilisés pour les tests locaux
+*.pdf
+2026-*
+2025-*
+2024-*
+
+# Divers
+*.log
+.DS_Store
+Thumbs.db
+web-ext-artifacts/
+*.zip
